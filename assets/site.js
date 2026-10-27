@@ -37,6 +37,23 @@
   var mdd = $("#mdd"), msub = $("#msub");
   if (mdd && msub) mdd.addEventListener("click", function () { toggle(msub, "open", mdd); });
 
+  /* ---------- mobile: sticky "Book a Free Call" bar ---------- */
+  var sticky = $("#mSticky"), foot = $("footer");
+  if (sticky) {
+    var stickyLink = $("a", sticky);
+    var onScroll = function () {
+      var footTop = foot ? foot.getBoundingClientRect().top : Infinity;
+      var show = mobile.matches && window.scrollY > 520 && footTop > window.innerHeight - 40 && !(menu && menu.classList.contains("open"));
+      sticky.classList.toggle("show", show);
+      sticky.setAttribute("aria-hidden", show ? "false" : "true");
+      if (stickyLink) stickyLink.tabIndex = show ? 0 : -1;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    if (burger) burger.addEventListener("click", function () { setTimeout(onScroll, 0); });
+    onScroll();
+  }
+
   /* ---------- footer: accordion on mobile ---------- */
   $$("footer .f-grid > div:not(.f-brand)").forEach(function (col) {
     var h = $("h2", col);
@@ -74,7 +91,7 @@
     function step(ts) {
       if (!start) start = ts;
       var p = Math.min(1, (ts - start) / dur);
-      el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))) + suffix(el);
+      el.innerHTML = Math.round(target * (1 - Math.pow(1 - p, 3))) + suffix(el).replace("+", '<span class="suf">+</span>');
       if (p < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
@@ -86,13 +103,13 @@
       }, { threshold: 0.4 });
       counters.forEach(function (el) { io.observe(el); });
     } else {
-      counters.forEach(function (el) { el.textContent = el.dataset.count + suffix(el); });
+      counters.forEach(function (el) { el.innerHTML = el.dataset.count + suffix(el).replace("+", '<span class="suf">+</span>'); });
     }
   }
 
   /* ---------- benefit cards: swipe slider with dots on mobile ---------- */
-  $$(".benefits").forEach(function (slider) {
-    var cards = $$(".benefit", slider);
+  $$(".benefits, .hipaa-grid").forEach(function (slider) {
+    var cards = $$(".benefit, .hp-card", slider);
     if (cards.length < 2) return;
     var dots = document.createElement("div");
     dots.className = "slider-dots";
@@ -120,6 +137,28 @@
     ["touchstart", "pointerdown"].forEach(function (ev) {
       slider.addEventListener(ev, function () { clearInterval(auto); }, { passive: true });
     });
+  });
+
+  /* ---------- comparison: segmented toggle on mobile ---------- */
+  $$(".diff").forEach(function (diff) {
+    var good = $(".diff-col.good", diff), bad = $(".diff-col.bad", diff);
+    if (!good || !bad) return;
+    var tabs = document.createElement("div");
+    tabs.className = "diff-tabs";
+    tabs.setAttribute("role", "tablist");
+    [["good", "EditSimple"], ["bad", "Typical agency"]].forEach(function (t, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.textContent = t[1];
+      b.setAttribute("aria-selected", i === 0 ? "true" : "false");
+      b.addEventListener("click", function () {
+        diff.classList.toggle("show-bad", t[0] === "bad");
+        $$("button", tabs).forEach(function (o) { o.setAttribute("aria-selected", o === b ? "true" : "false"); });
+      });
+      tabs.appendChild(b);
+    });
+    diff.before(tabs);
   });
 
   /* ---------- growth-path cards: expand on tap (mobile) ---------- */
