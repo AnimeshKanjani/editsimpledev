@@ -176,8 +176,15 @@
   var modal = $("#leadModal"), lead = $("#leadForm");
   if (modal && lead) {
     var leadErr = $("#leadErr"), leadBtn = $("#leadBtn"), other = lead.elements.message;
+    var leadTitle = $("#leadTitle"), leadSub = $(".lead-sub", modal);
+    var titleHTML = leadTitle.innerHTML, subText = leadSub.textContent, offer = "";
     function openModal(e) {
       e.preventDefault();
+      // Free-video buttons get their own heading and are tagged in the lead email.
+      offer = e.currentTarget.getAttribute("data-offer") || "";
+      var free = offer === "free-video";
+      leadTitle.innerHTML = free ? 'Claim your <span class="accent">free video</span>' : titleHTML;
+      leadSub.textContent = free ? "Free: 1 long-form video + 5 shorts. Share a few details and pick a time for your call." : subText;
       modal.classList.add("open");
       document.body.classList.add("lm-lock");
       setTimeout(function () { lead.elements.first_name.focus(); }, 50);
@@ -213,10 +220,11 @@
         location.href = CALENDLY + "?name=" + encodeURIComponent(name) + "&email=" + encodeURIComponent(email);
       };
       var done = false, finish = function () { if (!done) { done = true; goToCalendly(); } };
-      sendLead("popup", "New lead (" + PAGE + "): " + (isOther ? "Other profession" : prof) + " - " + name, {
+      var tag = offer === "free-video" ? "Free video" : "Call";
+      sendLead("popup", "New lead (" + PAGE + ", " + tag + "): " + (isOther ? "Other specialty" : prof) + " - " + name, {
         _hp: val(lead, "website"),
         "First Name": first, "Last Name": last, "Email": email,
-        "Phone": val(lead, "phone"), "Profession": profession
+        "Phone": val(lead, "phone"), "Specialty": profession, "Interested in": tag
       }).then(finish);
       setTimeout(finish, 4000); // never keep the visitor waiting on the email
     });

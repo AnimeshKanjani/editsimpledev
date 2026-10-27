@@ -6,29 +6,17 @@ LAYOUT = (ROOT / "src/layout.html").read_text()
 
 # name: (title, meta description, label used in form emails)
 PAGES = {
-    "index": ("EditSimple | Turn YouTube Into Your #1 Client Source",
-              "Turn YouTube into a 24/7 client acquisition system that helps your business attract more clients and accelerate growth without ads.",
-              "Generic Homepage"),
-    "solutions": ("EditSimple | Solutions",
-                  "Learn our system, partner with us, or let us handle everything. Choose the YouTube growth path that fits your business.",
-                  "Solutions"),
-    "course": ("EditSimple | Course",
-               "A 10-module YouTube growth course for professionals: create, grow and monetize your channel.",
-               "Course"),
-    "consulting": ("EditSimple | Consulting",
-                   "Professional YouTube content creation support while you learn our proven growth strategies.",
-                   "Consulting"),
-    "productions": ("EditSimple | Productions",
-                    "Done-for-you YouTube production and channel management for busy professionals.",
-                    "Productions"),
-    "free-resources": ("EditSimple | Free Resources",
-                       "Free guides to start growing your YouTube channel and scale your business without relying on ads.",
-                       "Free Resources"),
-    "about": ("EditSimple | About", "EditSimple turns your vision into captivating video content.", "About"),
+    "index": ("EditSimple | YouTube for Dermatology & Aesthetic Practices",
+              "We run your practice's YouTube channel end to end: strategy, scripts, editing, thumbnails and publishing. You record once a month. HIPAA-compliant, BAA available.",
+              "Homepage"),
+    "work": ("EditSimple | Our Work",
+             "600+ videos a month, 1B+ views: three years producing content for US professionals, now for dermatology and aesthetic practices.",
+             "Our Work"),
+    "about": ("EditSimple | About", "EditSimple runs YouTube channels for experts who'd rather be doing their real job.", "About"),
     "careers": ("EditSimple | Careers", "Join the EditSimple team.", "Careers"),
     "contact": ("EditSimple | Contact Us", "Email us or book a free 30-minute strategy call with EditSimple.", "Contact"),
-    "privacy": ("EditSimple | Privacy Policy", "EditSimple Privacy Policy.", "Privacy Policy"),
-    "terms": ("EditSimple | Terms & Conditions", "EditSimple Terms & Conditions.", "Terms & Conditions"),
+    "privacy": ("EditSimple | Privacy Policy", "How EditSimple handles information, and our commitment to never disclose patient information. HIPAA-conscious, BAA available.", "Privacy Policy"),
+    "terms": ("EditSimple | Terms & Conditions", "The terms that apply when your practice works with EditSimple on YouTube and social video.", "Terms & Conditions"),
 }
 
 def background(tag):
