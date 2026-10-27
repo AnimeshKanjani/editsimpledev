@@ -5010,3 +5010,170 @@ main > section.flush-top {
 .hc-stats b .suf {
   color: #fff !important;
 }
+
+/* Hero card: no inner box, just the stats on the orange card */
+.hc-stats {
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  gap: 26px 24px !important;
+}
+.hc-stats > div {
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+@media (max-width: 760px) {
+  .hc-stats {
+    gap: 20px 16px !important;
+  }
+}
+
+.hc-label {
+  margin-bottom: 24px !important;
+}
+.hc-link {
+  margin-top: 26px !important;
+}
+/* Keep the hero card at its original size without the inner box */
+.hc-stats {
+  gap: 0 !important;
+}
+.hc-stats > div {
+  padding: 22px 20px !important;
+}
+.hc-label {
+  margin-bottom: 22px !important;
+}
+.hc-link {
+  margin-top: 22px !important;
+}
+@media (max-width: 760px) {
+  .hc-stats > div {
+    padding: 14px 12px !important;
+  }
+}
+.hc-stats > div {
+  padding-left: 0 !important;
+}
+
+
+/* Offer badge: side-by-side layout on every screen */
+.offer-badge {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  align-content: center;
+  padding: 30px 18px 28px !important;
+}
+.offer-badge em {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-bottom: 22px !important;
+}
+.offer-badge .ob-item {
+  padding: 6px 8px !important;
+  align-content: start;
+}
+.offer-badge .ob-item + .ob-item {
+  border-top: 0 !important;
+  border-left: 2px dashed rgba(255, 255, 255, 0.45) !important;
+}
+.offer-badge .ob-item b {
+  font-size: 56px;
+}
+.offer-badge .ob-item span {
+  text-align: center;
+  line-height: 1.3;
+}
+@media (max-width: 760px) {
+  .offer-badge {
+    padding: 22px 16px 18px !important;
+  }
+  .offer-badge em {
+    margin-bottom: 14px !important;
+  }
+  .offer-badge .ob-item b {
+    font-size: 42px;
+  }
+}
+.offer-badge .ob-item span {
+  white-space: nowrap;
+  font-size: 14px;
+}
+@media (min-width: 1001px) {
+  .offer {
+    grid-template-columns: 1.3fr 0.7fr;
+  }
+  .offer-badge {
+    align-self: stretch;
+    padding: 36px 20px !important;
+  }
+  .offer-badge .ob-item b {
+    font-size: 64px;
+  }
+}
+@media (min-width: 1001px) {
+  .offer-badge .ob-item b {
+    font-size: 92px !important;
+    letter-spacing: -0.04em;
+  }
+  .offer-badge .ob-item span {
+    font-size: 15px;
+  }
+  .offer-badge em {
+    font-size: 14px;
+    padding: 8px 18px;
+    margin-bottom: 34px !important;
+  }
+  .offer-badge .ob-item {
+    gap: 10px;
+  }
+}
+.offer-badge .ob-item + .ob-item {
+  border: 0 !important;
+}
+.offer-badge .ob-item span.ob-ic {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  margin-bottom: 6px;
+}
+@media (max-width: 760px) {
+  .offer-badge .ob-item span.ob-ic {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    margin-bottom: 2px;
+  }
+  .offer-badge .ob-item span.ob-ic svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Work page number band: soft orange tint */
+.num-band {
+  background: rgba(255, 87, 26, 0.16) !important;
+  border-color: rgba(255, 87, 26, 0.18) !important;
+  box-shadow: 0 20px 44px -32px rgba(194, 65, 12, 0.55);
+}
+.num-band > div {
+  background: linear-gradient(180deg, #fff6f0 0%, #ffece2 100%) !important;
+}
+@media (max-width: 760px) {
+  .num-band {
+    background: none !important;
+    box-shadow: none;
+  }
+  .num-band > div {
+    border-color: rgba(255, 87, 26, 0.2) !important;
+  }
+}
