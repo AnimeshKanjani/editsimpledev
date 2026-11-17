@@ -7,10 +7,10 @@ LAYOUT = (ROOT / "src/layout.html").read_text()
 # name: (title, meta description, label used in form emails)
 PAGES = {
     "index": ("EditSimple | YouTube for Dermatology & Aesthetic Practices",
-              "We run your practice's YouTube channel end to end: strategy, scripts, editing, thumbnails and publishing. You record once a month. HIPAA-compliant, BAA available.",
+              "We run your practice's YouTube channel end to end: strategy, scripts, editing, thumbnails and publishing. You record once a month. No patient data, BAA available.",
               "Homepage"),
     "work": ("EditSimple | Our Work",
-             "600+ videos a month, 1B+ views: three years producing content for US professionals, now for dermatology and aesthetic practices.",
+             "600+ videos a month, 1B+ views across all platforms: three years producing content for US professionals, now for dermatology and aesthetic practices.",
              "Our Work"),
     "about": ("EditSimple | About", "EditSimple runs YouTube channels for experts who'd rather be doing their real job.", "About"),
     "careers": ("EditSimple | Careers", "Join the EditSimple team.", "Careers"),
@@ -41,6 +41,18 @@ import json, html as H, datetime as dt, os
 # Public address of the site, used for canonical links and sitemap.xml.
 SITE_URL = (os.environ.get("SITE_URL") or "https://is3604.github.io/EDS-Web").rstrip("/")
 
+# Link-preview card (WhatsApp, LinkedIn, iMessage, email) for every page. Image: images/og-image.jpg, 1200x630.
+OG_IMAGE = f"{SITE_URL}/images/og-image.jpg"
+def share_tags(url, title, desc, kind="website"):
+    t, d = H.escape(title, quote=True), H.escape(desc, quote=True)
+    return (f'<link rel="canonical" href="{url}"/>\n'
+            f'<meta property="og:type" content="{kind}"/>\n<meta property="og:site_name" content="EditSimple"/>\n'
+            f'<meta property="og:title" content="{t}"/>\n<meta property="og:description" content="{d}"/>\n'
+            f'<meta property="og:url" content="{url}"/>\n<meta property="og:image" content="{OG_IMAGE}"/>\n'
+            f'<meta property="og:image:width" content="1200"/>\n<meta property="og:image:height" content="630"/>\n'
+            f'<meta property="og:image:alt" content="EditSimple: YouTube for dermatology and aesthetic practices"/>\n'
+            f'<meta name="twitter:card" content="summary_large_image"/>')
+
 def render(main, title, desc, label, base="", head_extra=""):
     return (LAYOUT.replace("{{base}}", base)
                   .replace("{{head_extra}}", head_extra)
@@ -51,7 +63,8 @@ def render(main, title, desc, label, base="", head_extra=""):
 
 for name, (title, desc, label) in PAGES.items():
     main = flush_same_backgrounds((ROOT / f"src/pages/{name}.html").read_text().strip())
-    (ROOT / f"{name}.html").write_text(render(main, title, desc, label))
+    url = f"{SITE_URL}/" if name == "index" else f"{SITE_URL}/{name}.html"
+    (ROOT / f"{name}.html").write_text(render(main, title, desc, label, head_extra=share_tags(url, title, desc)))
     print("built", name)
 
 # ---------------- BLOG ----------------
@@ -81,9 +94,9 @@ cards = "\n".join(f'''      <a class="blog-card" href="blog/{p["slug"]}.html">
 blog_main = f'''<main>
 <section class="hero sol-hero blog-hero">
   <div class="wrap center">
-    <h2 class="eyebrow">Blog</h2>
+    <p class="eyebrow">Blog</p>
     <h1 class="blog-h1">YouTube growth for <span class="accent">medical practices</span></h1>
-    <p class="lead">Practical guides on video, YouTube and patient-first content for dermatology and aesthetic practices. New article every week.</p>
+    <p class="lead">Practical guides on video, YouTube and patient-first content for dermatology and aesthetic practices. New articles regularly.</p>
   </div>
 </section>
 <section class="blog-list">
@@ -95,8 +108,9 @@ blog_main = f'''<main>
 </section>
 </main>'''
 (ROOT / "blog.html").write_text(render(blog_main, "EditSimple | Blog",
-    "Weekly guides on YouTube and video marketing for dermatology and aesthetic practices.", "Blog",
-    head_extra=f'<link rel="canonical" href="{SITE_URL}/blog.html"/>'))
+    "Practical guides on YouTube and video marketing for dermatology and aesthetic practices.", "Blog",
+    head_extra=share_tags(f"{SITE_URL}/blog.html", "EditSimple | Blog",
+                          "Practical guides on YouTube and video marketing for dermatology and aesthetic practices.")))
 print("built blog", f"({len(posts)} posts)")
 
 (ROOT / "blog").mkdir(exist_ok=True)
@@ -113,10 +127,8 @@ for i, p in enumerate(posts):
                      "publisher": {"@type": "Organization", "name": "EditSimple",
                                    "logo": {"@type": "ImageObject", "url": f"{SITE_URL}/images/home/logo.png"}}})
     t = H.escape(p["title"], quote=True); d = H.escape(p["description"], quote=True)
-    head = (f'<link rel="canonical" href="{url}"/>\n<meta name="keywords" content="{H.escape(", ".join(p.get("keywords", [])), quote=True)}"/>\n'
-            f'<meta property="og:type" content="article"/>\n<meta property="og:title" content="{t}"/>\n'
-            f'<meta property="og:description" content="{d}"/>\n<meta property="og:url" content="{url}"/>\n'
-            f'<meta property="og:image" content="{SITE_URL}/images/home/logo.png"/>\n'
+    head = (share_tags(url, p["title"], p["description"], "article") + "\n"
+            f'<meta name="keywords" content="{H.escape(", ".join(p.get("keywords", [])), quote=True)}"/>\n'
             f'<script type="application/ld+json">{ld}</script>')
     others = [o for o in posts if o is not p][:3]
     srcs = "".join(f'<li><a href="{H.escape(x["url"], quote=True)}" target="_blank" rel="nofollow noopener">{H.escape(x["title"])}</a></li>'

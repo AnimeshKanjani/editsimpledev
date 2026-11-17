@@ -389,7 +389,7 @@
       sendLead("popup", "New lead (" + PAGE + ", " + tag + "): " + (isOther ? "Other specialty" : prof) + " - " + name, {
         _hp: val(lead, "website"),
         "First Name": first, "Last Name": last, "Email": email,
-        "Phone": val(lead, "phone"), "Specialty": profession, "Interested in": tag,
+        "Phone": val(lead, "phone"), "Practice Website": val(lead, "practice_site"), "Specialty": profession, "Interested in": tag,
         "Button": btn.text, "Button Location": btn.where
       }).then(finish);
       setTimeout(finish, 4000); // never keep the visitor waiting on the email
@@ -440,7 +440,7 @@
 (function () {
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var mobile = window.matchMedia("(max-width: 760px)").matches;
-  var labels = document.querySelectorAll(".eyebrow, .faq > .wrap > h2");
+  var labels = document.querySelectorAll(".eyebrow, .faq > .wrap > .faq-eyebrow");
   if (mobile && !reduce && "IntersectionObserver" in window && labels.length) {
     document.documentElement.classList.add("eb-anim");
     var io = new IntersectionObserver(function (entries) {
