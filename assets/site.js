@@ -15,17 +15,97 @@
     if (btn) btn.setAttribute("aria-expanded", on);
     return on;
   }
+  /* ---------- traffic source (UTM) tracking ----------
+     Saves where the visitor came from on their first page view (utm_* tags, ad click IDs,
+     or the referring site) and attaches it to every form they send. Kept for 90 days;
+     a newer link with UTM tags replaces it. */
+  var UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+  var CLICK_KEYS = ["gclid", "fbclid", "msclkid", "ttclid", "li_fat_id"];
+  var SRC_KEY = "es_src", SRC_DAYS = 90;
+  function readSource() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SRC_KEY) || "null");
+      if (s && Date.now() - s.t < SRC_DAYS * 864e5) return s;
+    } catch (e) {}
+    return null;
+  }
+  var SOURCE = (function () {
+    var q = new URLSearchParams(location.search), found = {}, tagged = false;
+    UTM_KEYS.concat(CLICK_KEYS).forEach(function (k) {
+      var v = (q.get(k) || "").trim().slice(0, 150);
+      if (v) { found[k] = v; tagged = true; }
+    });
+    var saved = readSource();
+    if (!tagged && saved) return saved;
+    var ref = "";
+    try { ref = document.referrer && new URL(document.referrer).hostname !== location.hostname ? document.referrer : ""; } catch (e) {}
+    if (!tagged && !ref && saved === null) found.utm_source = "(direct)";
+    if (!tagged && ref) {
+      var host = new URL(ref).hostname.replace(/^www\./, "");
+      var search = /(^|\.)(google|bing|yahoo|duckduckgo|yandex|ecosia|baidu)\./.test(host);
+      found.utm_source = host;
+      found.utm_medium = search ? "organic" : "referral";
+    }
+    if (found.gclid && !found.utm_source) { found.utm_source = "google"; found.utm_medium = "cpc"; }
+    if (found.fbclid && !found.utm_source) { found.utm_source = "facebook"; found.utm_medium = "paid_social"; }
+    var src = { v: found, ref: ref, land: location.pathname.split("/").pop() || "index.html", t: Date.now() };
+    try { localStorage.setItem(SRC_KEY, JSON.stringify(src)); } catch (e) {}
+    return src;
+  })();
+  function sourceFields(fields) {
+    var v = SOURCE.v, ids = CLICK_KEYS.filter(function (k) { return v[k]; });
+    if (v.utm_source) fields["UTM Source"] = v.utm_source;
+    if (v.utm_medium) fields["UTM Medium"] = v.utm_medium;
+    if (v.utm_campaign) fields["UTM Campaign"] = v.utm_campaign;
+    if (v.utm_term) fields["UTM Term"] = v.utm_term;
+    if (v.utm_content) fields["UTM Content"] = v.utm_content;
+    if (ids.length) fields["Ad Click ID"] = ids.map(function (k) { return k + "=" + v[k]; }).join(" ").slice(0, 300);
+    if (SOURCE.land) fields["Landing Page"] = SOURCE.land;
+    if (SOURCE.ref) fields["First Referrer"] = SOURCE.ref;
+  }
+  // Adds the visitor's UTM tags to a Calendly link so bookings show the source too.
+  function withUtm(url) {
+    try {
+      var u = new URL(url);
+      UTM_KEYS.forEach(function (k) { if (SOURCE.v[k] && !u.searchParams.get(k)) u.searchParams.set(k, SOURCE.v[k]); });
+      return u.toString();
+    } catch (e) { return url; }
+  }
+
   // Sends a form submission to the email function. Resolves true on success.
   function sendLead(form, subject, fields) {
     var payload = { form: form, subject: subject, website: fields._hp || "", fields: fields };
     delete fields._hp;
     fields["Form Page"] = PAGE;
     fields["Page URL"] = location.href;
+    if (document.referrer) fields["Referrer"] = document.referrer;
+    sourceFields(fields);
     return fetch(window.ES_LEAD_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     }).then(function (r) { return r.ok; }, function () { return false; });
+  }
+
+  // Describes which button opened a form and where it sits on the page (shown in the dashboard).
+  function buttonInfo(el) {
+    var text = (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    var where = "Page";
+    if (el.closest("#mSticky")) where = "Mobile bottom bar";
+    else if (el.closest("#mobile")) where = "Mobile menu";
+    else if (el.closest(".m-offer")) where = "Mobile header offer button";
+    else if (el.closest("header")) where = "Header";
+    else if (el.closest(".f-cta")) where = "Footer call-to-action";
+    else if (el.closest("footer")) where = "Footer";
+    else {
+      var sec = el.closest("section");
+      if (sec) {
+        var h = sec.querySelector(".sec-title") || sec.querySelector("h1") || sec.querySelector("h3") || sec.querySelector("h2");
+        var title = h ? h.textContent.replace(/\s+/g, " ").trim().slice(0, 70) : "";
+        where = (sec.id ? "#" + sec.id + " " : "") + (title ? "“" + title + "”" : "section");
+      }
+    }
+    return { text: text, where: where };
   }
 
   /* ---------- header: mobile menu + solutions dropdown ---------- */
@@ -216,14 +296,20 @@
   if (modal && lead) {
     var leadErr = $("#leadErr"), leadBtn = $("#leadBtn"), other = lead.elements.message;
     var leadTitle = $("#leadTitle"), leadSub = $(".lead-sub", modal);
-    var titleHTML = leadTitle.innerHTML, subText = leadSub.textContent, offer = "";
+    var titleHTML = leadTitle.innerHTML, subText = leadSub.textContent, offer = "", btn = { text: "", where: "" };
     function openModal(e) {
       e.preventDefault();
+      showModal(e.currentTarget.getAttribute("data-offer") || "", buttonInfo(e.currentTarget));
+    }
+    function showModal(offerType, info) {
       // Free-video buttons get their own heading and are tagged in the lead email.
-      offer = e.currentTarget.getAttribute("data-offer") || "";
+      offer = offerType;
+      btn = info;
       var free = offer === "free-video";
       leadTitle.innerHTML = free ? 'Claim your <span class="accent">free video</span>' : titleHTML;
       leadSub.textContent = free ? "Free: 1 long-form video + 5 shorts. Share a few details and pick a time for your call." : subText;
+      var bx = $(".lead-box", modal);
+      if (bx && bx.classList.contains("done")) { bx.classList.remove("done"); $("#leadDone").hidden = true; leadBtn.disabled = false; leadBtn.textContent = "Submit"; }
       modal.classList.add("open");
       document.body.classList.add("lm-lock");
       setTimeout(function () { lead.elements.first_name.focus(); }, 50);
@@ -232,7 +318,36 @@
       modal.classList.remove("open");
       document.body.classList.remove("lm-lock");
     }
-    $$('a[href*="calendly.com"]').forEach(function (a) { a.addEventListener("click", openModal); });
+    $$('a[href*="calendly.com"]').forEach(function (a) { a.href = withUtm(a.href); if (!a.closest("#leadModal")) a.addEventListener("click", openModal); });
+    // "Founding Offer" links: scroll to the offer section and open the free-video form.
+    function claimFree(info) {
+      var sec = $("#founding");
+      if (menu) menu.classList.remove("open");
+      if (burger) burger.setAttribute("aria-expanded", "false");
+      if (sec) sec.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      setTimeout(function () { showModal("free-video", info); }, sec ? 750 : 0);
+    }
+    $$("[data-claim]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        if (!$("#founding")) return; // other pages: go to the homepage, which opens the form on arrival
+        e.preventDefault();
+        claimFree(buttonInfo(a));
+      });
+    });
+    if (/[?&]claim=1/.test(location.search) && $("#founding")) {
+      history.replaceState(null, "", location.pathname + "#founding");
+      setTimeout(function () { claimFree({ text: "Founding Offer", where: "Founding Offer link (from another page)" }); }, 250);
+    }
+    // Coming back from Calendly with the browser's back button: start fresh.
+    window.addEventListener("pageshow", function (e) {
+      if (!e.persisted) return;
+      var bx = $(".lead-box", modal);
+      if (bx) bx.classList.remove("done");
+      $("#leadDone").hidden = true;
+      leadBtn.disabled = false;
+      leadBtn.textContent = "Submit";
+      closeModal();
+    });
     modal.addEventListener("click", function (e) { if (e.target === modal || e.target.hasAttribute("data-lead-close")) closeModal(); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && modal.classList.contains("open")) closeModal(); });
 
@@ -255,15 +370,27 @@
       leadBtn.disabled = true;
       leadBtn.textContent = "Submitting...";
       var name = first + " " + last, profession = isOther ? "Other: " + otherText : prof;
-      var goToCalendly = function () {
-        location.href = CALENDLY + "?name=" + encodeURIComponent(name) + "&email=" + encodeURIComponent(email);
+      var calUrl = CALENDLY + "?name=" + encodeURIComponent(name) + "&email=" + encodeURIComponent(email);
+      calUrl = withUtm(calUrl);
+      var done = false, finish = function () {
+        if (done) return;
+        done = true;
+        // Show the animated tick + "taking you to the calendar" message, then redirect.
+        var box = $(".lead-box", modal), doneEl = $("#leadDone");
+        if (box && doneEl) {
+          $("#leadDoneTitle").textContent = "Thank you, " + first + "!";
+          $("#leadDoneLink").href = calUrl;
+          box.classList.add("done");
+          doneEl.hidden = false;
+          setTimeout(function () { location.href = calUrl; }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1800 : 2800);
+        } else location.href = calUrl;
       };
-      var done = false, finish = function () { if (!done) { done = true; goToCalendly(); } };
       var tag = offer === "free-video" ? "Free video" : "Call";
       sendLead("popup", "New lead (" + PAGE + ", " + tag + "): " + (isOther ? "Other specialty" : prof) + " - " + name, {
         _hp: val(lead, "website"),
         "First Name": first, "Last Name": last, "Email": email,
-        "Phone": val(lead, "phone"), "Specialty": profession, "Interested in": tag
+        "Phone": val(lead, "phone"), "Specialty": profession, "Interested in": tag,
+        "Button": btn.text, "Button Location": btn.where
       }).then(finish);
       setTimeout(finish, 4000); // never keep the visitor waiting on the email
     });
@@ -287,7 +414,8 @@
       ctBtn.textContent = "Sending...";
       sendLead("contact", "Website enquiry (" + PAGE + "): " + topic + " - " + name, {
         _hp: val(ct, "website"),
-        "Name": name, "Email": email, "Phone": val(ct, "phone"), "Interested in": topic, "Message": msg
+        "Name": name, "Email": email, "Phone": val(ct, "phone"), "Interested in": topic, "Message": msg,
+        "Button": "Send Message", "Button Location": "Contact page form"
       }).then(function (ok) {
         if (ok) { card.classList.add("sent"); return; }
         ctBtn.disabled = false;
@@ -297,4 +425,150 @@
       });
     });
   }
+})();
+
+// Blog: show the "New" badge for 7 days after a post's date.
+(function () {
+  var now = Date.now();
+  document.querySelectorAll("[data-new-date]").forEach(function (el) {
+    var t = Date.parse(el.getAttribute("data-new-date") + "T00:00:00");
+    if (!isNaN(t) && now - t < 7 * 864e5) el.hidden = false;
+  });
+})();
+
+/* ---------- Mobile: animated section labels + logo intro ---------- */
+(function () {
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var mobile = window.matchMedia("(max-width: 760px)").matches;
+  var labels = document.querySelectorAll(".eyebrow, .faq > .wrap > h2");
+  if (mobile && !reduce && "IntersectionObserver" in window && labels.length) {
+    document.documentElement.classList.add("eb-anim");
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("eb-in"); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.6 });
+    labels.forEach(function (el) { io.observe(el); });
+  }
+
+  var root = document.documentElement, splash = document.getElementById("splash");
+  if (!splash) return;
+  if (!root.classList.contains("splash")) { splash.remove(); return; }
+  try { sessionStorage.setItem("es_intro", "1"); } catch (e) {}
+  var img = splash.querySelector("img"), target = document.querySelector("header .logo img");
+  var done = false;
+  function finish() {
+    if (done) return;
+    done = true;
+    root.classList.remove("splash");
+    splash.remove();
+  }
+  // 1) logo pops in and bounces (CSS, ~0.85s)  2) holds in the centre  3) jumps along a curve into the header
+  setTimeout(function () {
+    if (!target || !img || !img.animate) return finish();
+    var a = img.getBoundingClientRect(), b = target.getBoundingClientRect();
+    if (!b.width) return finish();
+    var dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    var dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+    var k = b.width / a.width;
+    var lift = Math.max(110, Math.abs(dy) * 0.45); // how high the arc goes above the straight path
+    var frames = [];
+    for (var n = 0; n <= 40; n++) {
+      var t = n / 40;
+      // quadratic Bezier bending slightly to the right: start (0,0) -> control (right, up) -> end (dx, dy)
+      var cx = Math.max(70, Math.abs(dx) * 0.45), cy = -lift;
+      var x = 2 * (1 - t) * t * cx + t * t * dx;
+      var y = 2 * (1 - t) * t * cy + t * t * dy;
+      var sc = 1 + (k - 1) * t;
+      var rot = Math.sin(t * Math.PI) * 7; // slight tilt to the right mid-air
+      frames.push({ transform: "translate(" + x + "px," + y + "px) rotate(" + rot + "deg) scale(" + sc + ")", offset: t });
+    }
+    img.style.animation = "none";
+    var jump = img.animate(frames, { duration: 950, easing: "cubic-bezier(.45,.05,.35,1)", fill: "forwards" });
+    // reveal the page underneath while the logo is in the air
+    setTimeout(function () { splash.classList.add("fly"); }, 350);
+    jump.onfinish = function () {
+      target.style.transition = "none";
+      root.classList.remove("splash"); // header logo shows exactly where the flying logo landed
+      splash.style.transition = "opacity .2s";
+      splash.style.opacity = "0";
+      setTimeout(finish, 220);
+    };
+  }, 1000);
+  setTimeout(finish, 5000); // safety net
+})();
+
+/* Hero video testimonial: opens in a popup and plays with sound. */
+(function () {
+  var btn = document.querySelector(".hc-testi, .hc-reel"), modal = document.getElementById("testiModal");
+  if (!btn || !modal) return;
+  var video = modal.querySelector("video"), closeBtn = modal.querySelector(".tm-close"), lastFocus = null;
+  function open() {
+    lastFocus = document.activeElement;
+    if (!video.getAttribute("src")) video.src = btn.getAttribute("data-testi");
+    modal.hidden = false;
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(function () { modal.classList.add("open"); });
+    try { video.currentTime = 0; } catch (e) {}
+    var p = video.play(); if (p && p.catch) p.catch(function () {});
+    closeBtn.focus();
+  }
+  function close() {
+    video.pause();
+    modal.classList.remove("open");
+    document.body.style.overflow = "";
+    setTimeout(function () { modal.hidden = true; }, 250);
+    if (lastFocus) lastFocus.focus();
+  }
+  btn.addEventListener("click", open);
+  closeBtn.addEventListener("click", close);
+  modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !modal.hidden) close(); });
+})();
+
+/* Reel preview: plays muted on loop while visible (loads only when scrolled near). */
+(function () {
+  var reel = document.querySelector(".hc-reel");
+  if (!reel) return;
+  var v = reel.querySelector(".hr-video"), bar = reel.querySelector(".hr-bar i");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  v.addEventListener("timeupdate", function () { if (v.duration) bar.style.width = (v.currentTime / v.duration * 100) + "%"; });
+  v.addEventListener("playing", function () { reel.classList.add("playing"); });
+  v.addEventListener("pause", function () { reel.classList.remove("playing"); });
+  if (reduce || !("IntersectionObserver" in window)) return;
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      var modal = document.getElementById("testiModal");
+      if (e.isIntersecting && (!modal || modal.hidden)) {
+        if (!v.getAttribute("src")) v.src = v.getAttribute("data-src");
+        var p = v.play(); if (p && p.catch) p.catch(function () {});
+      } else if (!e.isIntersecting) v.pause();
+    });
+  }, { threshold: 0.35 });
+  io.observe(reel);
+  // pause the preview while the full video with sound is open
+  reel.addEventListener("click", function () { v.pause(); });
+  var modal = document.getElementById("testiModal");
+  if (modal) new MutationObserver(function () {
+    if (modal.hidden) { var r = reel.getBoundingClientRect(); if (r.bottom > 0 && r.top < innerHeight) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } }
+  }).observe(modal, { attributes: true, attributeFilter: ["hidden"] });
+})();
+
+/* Hero testimonial: plays in place with sound only when the visitor taps play. */
+(function () {
+  var box = document.querySelector(".hv");
+  if (!box) return;
+  var v = box.querySelector(".hv-video"), btn = box.querySelector(".hv-play");
+  function start() {
+    if (!v.getAttribute("src")) v.src = v.getAttribute("data-src");
+    v.controls = true;
+    box.classList.add("is-playing");
+    var p = v.play(); if (p && p.catch) p.catch(function () { box.classList.remove("is-playing"); });
+  }
+  btn.addEventListener("click", start);
+  v.addEventListener("ended", function () { box.classList.remove("is-playing"); v.controls = false; try { v.currentTime = 0; v.load(); } catch (e) {} });
+  // pause when scrolled away
+  if ("IntersectionObserver" in window) new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (!e.isIntersecting && !v.paused) v.pause(); });
+  }, { threshold: 0.2 }).observe(box);
 })();
