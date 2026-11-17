@@ -4,6 +4,12 @@ import re, pathlib
 ROOT = pathlib.Path(__file__).parent
 LAYOUT = (ROOT / "src/layout.html").read_text()
 
+# Cache-busting: stamp CSS/JS links with a short hash of the file, so browsers fetch new versions after each release.
+import hashlib
+for _asset in ("assets/site.css", "assets/site.js", "assets/config.js"):
+    _v = hashlib.md5((ROOT / _asset).read_bytes()).hexdigest()[:8]
+    LAYOUT = LAYOUT.replace(f'"{_asset}"', f'"{_asset}?v={_v}"')
+
 # name: (title, meta description, label used in form emails)
 PAGES = {
     "index": ("EditSimple | YouTube for Dermatology & Aesthetic Practices",
